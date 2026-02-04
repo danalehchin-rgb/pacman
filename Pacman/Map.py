@@ -121,4 +121,5 @@ def main():
     game_view.setup()
     window.show_view(game_view)
     arcade.run()
+    #test
 main()
