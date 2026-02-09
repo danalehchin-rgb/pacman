@@ -1,38 +1,72 @@
 import arcade
-WINDOW_WIDTH = 800
+import random
+
+# --- קבועים ---
+# חישוב מדויק: 29 משבצות רוחב * 32 פיקסלים = 928
+WINDOW_WIDTH = 928
 WINDOW_HEIGHT = 600
 WINDOW_TITLE = "Pacman"
 TILE_SIZE = 32
 
-LEVEL_MAP = ["WWWWWWWWWWWWWWWWWWWWWWWWW",
-    "W P           C         W",
-    "W WWWW  WWWWWWWW  WWWW  W",
-    "W G        C         G  W",
-    "W WWWW  WW  WW  WW  WWWW W",
-    "W C     W    W   W     C W",
-    "WWWWWWWWWWWWWWWWWWWWWWWWW",]
+LEVEL_MAP = [
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "W  P C C C W W W C C C CCC  W",
+    "W  WWWWW C W W W C WWWWWW C W",
+    "W  C C C C C C C C C C CC C W",
+    "W  WWW C WWWWWWWWW C WWWW C W",
+    "W  C C C C C G C C C C C    W",
+    "W CWWW C WWW   WWW C  WWW   W",
+    "W CC C C W G   G W C C CCG  W",
+    "W  WWWWW W WWWWW W  WWWWWW  W",
+    "W  C C C C C C C C CC C C C W",
+    "W CWWWWW C WWWWW C  WWWWW   W",
+    "W GC C C C C C C C CC C C   W",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+]
+
+
+# --- מחלקות ---
 
 class Pacman(arcade.Sprite):
     def __init__(self):
         super().__init__()
-        # כאן אנחנו טוענים את התמונה החדשה
-        self.texture = arcade.load_texture("pacgirl.png")
-        self.width = 35
-        self.height = 30
+        try:
+            self.texture = arcade.load_texture("pacgirl.png")
+        except:
+            # גיבוי למקרה שאין תמונה
+            self.texture = arcade.make_circle_texture(26, arcade.color.YELLOW)
+
+        # תיקון חשוב: הקטנו ל-26 כדי שיעבור במסדרון של 32
+        self.width = 26
+        self.height = 26
+        self.change_x = 0
+        self.change_y = 0
+
 
 class Ghost(arcade.Sprite):
     def __init__(self):
         super().__init__()
-        self.texture = arcade.load_texture("ghost.png")
-        self.width = 35
-        self.height = 30
+        try:
+            self.texture = arcade.load_texture("ghost.png")
+        except:
+            self.texture = arcade.make_circle_texture(26, arcade.color.RED)
+
+        # תיקון חשוב: הקטנו ל-26 כדי שלא ייתקע בקירות
+        self.width = 26
+        self.height = 26
+        self.change_x = 0
+        self.change_y = 0
+
 
 class Coin(arcade.Sprite):
     def __init__(self):
         super().__init__()
-        self.texture = arcade.load_texture("coins.png")
-        self.width = 35
-        self.height = 30
+        try:
+            self.texture = arcade.load_texture("coins.png")
+        except:
+            self.texture = arcade.make_circle_texture(10, arcade.color.GOLD)
+        self.width = 20
+        self.height = 20
 
 
 class Wall(arcade.Sprite):
@@ -41,6 +75,9 @@ class Wall(arcade.Sprite):
         self.texture = arcade.make_soft_square_texture(TILE_SIZE, arcade.color.BLUE, outer_alpha=255)
         self.width = TILE_SIZE
         self.height = TILE_SIZE
+
+
+# --- המשחק ---
 
 class PacmanGame(arcade.View):
     def __init__(self):
@@ -52,8 +89,7 @@ class PacmanGame(arcade.View):
         self.player = None
         self.game_over = False
         self.background_color = arcade.color.BLACK
-        self.start_x = 0
-        self.start_y = 0
+        self.score = 0
 
     def setup(self):
         self.wall_list = arcade.SpriteList()
@@ -61,11 +97,14 @@ class PacmanGame(arcade.View):
         self.ghost_list = arcade.SpriteList()
         self.player_list = arcade.SpriteList()
         self.game_over = False
+        self.score = 0
+
         rows = len(LEVEL_MAP)
         for row_idx, row in enumerate(LEVEL_MAP):
             for col_idx, cell in enumerate(row):
                 x = col_idx * TILE_SIZE + TILE_SIZE / 2
                 y = (rows - row_idx - 1) * TILE_SIZE + TILE_SIZE / 2
+
                 if cell == 'W':
                     wall = Wall()
                     wall.center_x = x
@@ -78,28 +117,30 @@ class PacmanGame(arcade.View):
                     coin.center_y = y
                     self.coin_list.append(coin)
 
-                elif cell == 'G':  # Ghost
+                elif cell == 'G':
                     ghost = Ghost()
                     ghost.center_x = x
                     ghost.center_y = y
+                    # מהירות התחלתית לרוח
+                    ghost.change_x = 2
+                    ghost.change_y = 0
                     self.ghost_list.append(ghost)
 
-                elif cell == 'P':  # Player (Pacman)
+                elif cell == 'P':
                     self.player = Pacman()
                     self.player.center_x = x
                     self.player.center_y = y
                     self.player_list.append(self.player)
-                    self.start_x = x
-                    self.start_y = y
 
     def on_draw(self):
-
+        self.clear()
         self.wall_list.draw()
         self.ghost_list.draw()
         self.coin_list.draw()
         self.player_list.draw()
 
-        arcade.draw_text("Score: 0", 10, self.window.height - 20, arcade.color.WHITE, 14)
+        # הצגת הניקוד
+        arcade.draw_text(f"Score: {self.score}", 10, self.window.height - 20, arcade.color.WHITE, 14)
         arcade.draw_text("Lives: 3", 10, self.window.height - 40, arcade.color.WHITE, 14)
 
         if self.game_over:
@@ -107,13 +148,76 @@ class PacmanGame(arcade.View):
                              arcade.color.RED, 30, anchor_x="center")
 
     def on_update(self, delta_time):
-        pass
+        if self.game_over:
+            return
+
+        # --- תזוזת פקמן ---
+        self.player.center_x += self.player.change_x
+        self.player.center_y += self.player.change_y
+
+        # בדיקת התנגשות פקמן בקיר
+        if arcade.check_for_collision_with_list(self.player, self.wall_list):
+            self.player.center_x -= self.player.change_x
+            self.player.center_y -= self.player.change_y
+
+        # --- איסוף מטבעות ---
+        coins_hit = arcade.check_for_collision_with_list(self.player, self.coin_list)
+        for coin in coins_hit:
+            coin.remove_from_sprite_lists()
+            self.score += 10
+
+        # --- תזוזת רוחות ---
+        for ghost in self.ghost_list:
+            ghost.center_x += ghost.change_x
+            ghost.center_y += ghost.change_y
+
+            # בדיקת התנגשות רוח בקיר
+            if arcade.check_for_collision_with_list(ghost, self.wall_list):
+                # 1. חזרה אחורה
+                ghost.center_x -= ghost.change_x
+                ghost.center_y -= ghost.change_y
+
+                # 2. בחירת כיוון חדש
+                direction = random.choice(["UP", "DOWN", "LEFT", "RIGHT"])
+
+                if direction == "UP":
+                    ghost.change_x = 0
+                    ghost.change_y = 2
+                elif direction == "DOWN":
+                    ghost.change_x = 0
+                    ghost.change_y = -2
+                elif direction == "LEFT":
+                    ghost.change_x = -2
+                    ghost.change_y = 0
+                elif direction == "RIGHT":
+                    ghost.change_x = 2
+                    ghost.change_y = 0
+
+        # בדיקת הפסד
+        if arcade.check_for_collision_with_list(self.player, self.ghost_list):
+            self.game_over = True
 
     def on_key_press(self, key, modifiers):
-        pass
+        if key == arcade.key.UP:
+            self.player.change_y = 3
+            self.player.change_x = 0
+        elif key == arcade.key.DOWN:
+            self.player.change_y = -3
+            self.player.change_x = 0
+        elif key == arcade.key.LEFT:
+            self.player.change_x = -3
+            self.player.change_y = 0
+        elif key == arcade.key.RIGHT:
+            self.player.change_x = 3
+            self.player.change_y = 0
 
-    def collision(self):
-        pass
+    def on_key_release(self, key, modifiers):
+        # עוצר את הפקמן כשעוזבים את המקש (אופציונלי)
+        if key in [arcade.key.UP, arcade.key.DOWN]:
+            self.player.change_y = 0
+        elif key in [arcade.key.LEFT, arcade.key.RIGHT]:
+            self.player.change_x = 0
+
 
 def main():
     window = arcade.Window(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE)
@@ -121,5 +225,7 @@ def main():
     game_view.setup()
     window.show_view(game_view)
     arcade.run()
-    #test
-main()
+
+
+if __name__ == "__main__":
+    main()
